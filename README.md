@@ -44,7 +44,7 @@ By default the 1Password 8 data folder will be monitored for changes. The FSEven
 
 Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example to watch a single account indefinitely:
 
-`nohup cargo run $EXPORT_FOLDER $OP8_DATA_FOLDER BXRGOJ2Z5JB4RMA7FUYUURELUE &`
+`nohup cargo run $EXPORT_DIR $OP8_DATA_DIR BXRGOJ2Z5JB4RMA7FUYUURELUE &`
 
 ## History
 
@@ -80,7 +80,7 @@ This integration would no longer rely on unprotected plain text files, and with 
 
 There are innumerable possibilities as `op` is a full-featured CLI that supports CRUD of items, vaults, and even accounts.
 
-I'm looking forward to exploring all the possibilities this unlocks! 😍
+I'm looking forward to exploring all the possibilities this unlocks! 😍 And I'm happy to help. The best way to reach me is [@dteare](https://twitter.com/dteare) on Twitter. 🤗
 
 [^1]: [Alfred+1Password integration](https://www.alfredapp.com/help/features/1password/)
 [^2]: [LaunchBar+1Password features](https://www.obdev.at/products/launchbar/features.html)
