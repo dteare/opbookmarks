@@ -44,7 +44,7 @@ By default the 1Password 8 data folder will be monitored for changes. The FSEven
 
 Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example to watch a single account indefinitely:
 
-`nohup cargo run ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data/ BXRGOJ2Z5JB4RMA7FUYUURELUE &`
+`nohup cargo run $EXPORT_FOLDER $OP8_DATA_FOLDER BXRGOJ2Z5JB4RMA7FUYUURELUE &`
 
 ## History
 
