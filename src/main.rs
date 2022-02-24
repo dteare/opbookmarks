@@ -1,5 +1,6 @@
 extern crate notify;
 
+use clap::Parser;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::channel;
@@ -34,11 +35,46 @@ struct Item {
     updated_at: String,
 }
 
+#[derive(Parser)]
+struct Cli {
+    /// The path to export the metadata files to. Typically the same path that 1Password 7 used, namely ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
+    #[clap(parse(from_os_str))]
+    export_path: std::path::PathBuf,
+
+    /// The path to the 1Password 8 database file to watch. Typically ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
+    #[clap(parse(from_os_str))]
+    watch_path: std::path::PathBuf,
+
+    /// Account user UUIDs to generate metadata for. Defaults to all accounts. Use commas to separate multiple accounts. UUIDs can be found using `op account list`.
+    accounts: Vec<String>,
+}
+
 fn main() {
-    let accounts = find_accounts();
+    let args = Cli::parse();
+
+    if args.accounts.len() == 0 {
+        println!("Generating metadata for all accounts...");
+    } else {
+        println!("Generating metadata for {:?}", args.accounts);
+    }
+
+    generate_opbookmarks(&args.accounts, &args.export_path);
+
+    // Watch for changes
+    println!(
+        "Watching 1Password 8 data folder for changes ({:?})",
+        args.watch_path
+    );
+    if let Err(e) = watch(args.watch_path, &args.accounts, &args.export_path) {
+        println!("error: {:?}", e)
+    }
+}
+
+fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::path::PathBuf) {
+    let accounts = find_accounts(account_user_uuids);
 
     if let Err(err) = accounts {
-        println!("Failed to load accounts: {}", err);
+        eprintln!("Failed to load accounts: {}", err);
         exit(1);
     }
 
@@ -103,7 +139,7 @@ fn main() {
 
             match items {
                 Some(items) => {
-                    write_items(items, vault, account);
+                    write_items(export_path, items, vault, account);
                 }
                 None => {
                     eprint!("Unexpected None for items in vault {}", vault.id);
@@ -111,25 +147,21 @@ fn main() {
             }
         }
     }
-    println!("{:?}", items_by_vault);
-
-    // Watch for changes
-    if let Err(e) = watch() {
-        println!("error: {:?}", e)
-    }
+    println!("Metadata files created.");
 }
 
-fn write_items(items: &Vec<Item>, vault: &Vault, account: &Account) {
+fn write_items(
+    export_path: &std::path::PathBuf,
+    items: &Vec<Item>,
+    vault: &Vault,
+    account: &Account,
+) {
+    let mut path = export_path.clone();
+    path.push(account.user_uuid.clone());
+    path.push(vault.id.clone());
     match serde_json::to_string(&items) {
         Ok(json) => {
-            println!(
-                "Item json for vault {:?} in account {:?}:\n{}",
-                vault, account, json
-            );
-            write_file(
-                format!("dist/{}/{}/items.json", account.user_uuid, vault.id),
-                json,
-            );
+            write_file(path, json);
         }
         Err(err) => {
             eprint!(
@@ -140,7 +172,7 @@ fn write_items(items: &Vec<Item>, vault: &Vault, account: &Account) {
     };
 }
 
-fn find_accounts() -> Result<Vec<Account>, serde_json::Error> {
+fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, serde_json::Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
@@ -152,10 +184,34 @@ fn find_accounts() -> Result<Vec<Account>, serde_json::Error> {
 
     let accounts: Vec<Account> = serde_json::from_slice(json.as_slice())?;
 
-    Ok(accounts)
+    if account_user_uuids.len() == 0 {
+        println!(
+            "Including all found accounts for export: {}",
+            accounts.len()
+        );
+        Ok(accounts)
+    } else {
+        // Limit to the specified accounts
+        let mut specified_accounts: Vec<Account> = vec![];
+        for uuid in account_user_uuids.iter() {
+            match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
+                Some(account) => {
+                    println!("Including account {}", uuid);
+                    specified_accounts.push(account.clone());
+                }
+                None => {
+                    eprintln!(
+                        "Cannot include specified account {} for export as it couldn't be found",
+                        uuid
+                    );
+                }
+            }
+        }
+        Ok(specified_accounts)
+    }
 }
 
-fn write_file(path: String, contents: String) {
+fn write_file(path: std::path::PathBuf, contents: String) {
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::Path;
@@ -230,21 +286,33 @@ fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, serde_json:
     Ok(items)
 }
 
-fn watch() -> notify::Result<()> {
+fn watch(
+    path: std::path::PathBuf,
+    account_user_uuids: &Vec<String>,
+    export_path: &std::path::PathBuf,
+) -> notify::Result<()> {
     use notify::DebouncedEvent;
     let (tx, rx) = channel();
 
     let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(5))?;
 
-    watcher.watch("./src", RecursiveMode::Recursive)?;
+    watcher.watch(path, RecursiveMode::Recursive)?;
 
     loop {
         match rx.recv() {
             Ok(event) => match event {
-                DebouncedEvent::Write(_) => {
-                    println!("Event: {:?}", event)
+                DebouncedEvent::NoticeRemove(path) => {
+                    // SQLite removes the journal file after merging the contents with 1password.sqlite
+                    if path.ends_with("1password.sqlite-journal") {
+                        println!("1Password 8 data file changed. Updating metadata files...");
+                        generate_opbookmarks(account_user_uuids, export_path);
+                    } else {
+                        println!("Ignoring NoticeRemove of {:?}", path);
+                    }
                 }
-                _ => {}
+                _ => {
+                    println!("Ignoring event {:?}", event)
+                }
             },
             Err(e) => println!("watch error: {:?}", e),
         }
