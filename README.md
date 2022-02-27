@@ -10,17 +10,17 @@ This project uses the 1Password CLI to generate the identical metadata files to 
 
 ![opbookmarks authorizing with 1Password 8](./images/opbookmarks.png)
 
-## Building
+## Build & install
 
-For the time being there is no downloadable installation available. Instead, you will need to clone this repo and build it.
-
-Built and tested with [Rust](https://www.rust-lang.org) 1.59.0.
+You'll need [Rust](https://www.rust-lang.org) (at least 1.59.0) to build locally.
 
 - `git clone`
 - `cd opbookmarks`
 - `cargo build --release`
 
 The built executable can be found in `target/release/opbookmarks`.
+
+You can find pre-built executables on the [releases page](https://github.com/dteare/opbookmarks/releases). To use these you will need to manually chmod u+x and remove the quarentine bit to make it work.
 
 ## Usage
 
