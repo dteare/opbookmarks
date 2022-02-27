@@ -152,18 +152,25 @@ fn write_items(
 ) {
     let mut path = export_path.clone();
     path.push(account.user_uuid.clone());
-    path.push(vault.id.clone());
-    match serde_json::to_string(&items) {
-        Ok(json) => {
-            write_file(path, json);
-        }
-        Err(err) => {
-            eprint!(
-                "Error serializing item json for vault {}: {}",
-                vault.id, err
-            );
-        }
-    };
+
+    for item in items.iter() {
+        match serde_json::to_string(&item) {
+            Ok(json) => {
+                let mut path = path.clone();
+                path.push(format!(
+                    "{}_{}.onepassword-item-metadata",
+                    vault.id, item.id
+                ));
+                write_file(path, json);
+            }
+            Err(err) => {
+                eprint!(
+                    "Error serializing item json for vault {}: {}",
+                    vault.id, err
+                );
+            }
+        };
+    }
 }
 
 fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, serde_json::Error> {
