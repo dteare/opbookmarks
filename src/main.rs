@@ -10,6 +10,20 @@ use std::{
     process::{exit, Command},
 };
 
+#[derive(Parser)]
+struct Cli {
+    /// The path to export the metadata files to. Typically the same path that 1Password 7 used, namely ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
+    #[clap(parse(from_os_str))]
+    export_path: std::path::PathBuf,
+
+    /// The path to the 1Password 8 database file to watch. Typically ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
+    #[clap(parse(from_os_str))]
+    watch_path: std::path::PathBuf,
+
+    /// Account user UUIDs to generate metadata for. Defaults to all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
+    accounts: Vec<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 struct Account {
     email: String,
@@ -33,20 +47,6 @@ struct Item {
     last_edited_by: String,
     created_at: String,
     updated_at: String,
-}
-
-#[derive(Parser)]
-struct Cli {
-    /// The path to export the metadata files to. Typically the same path that 1Password 7 used, namely ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
-    #[clap(parse(from_os_str))]
-    export_path: std::path::PathBuf,
-
-    /// The path to the 1Password 8 database file to watch. Typically ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
-    #[clap(parse(from_os_str))]
-    watch_path: std::path::PathBuf,
-
-    /// Account user UUIDs to generate metadata for. Defaults to all accounts. Use commas to separate multiple accounts. UUIDs can be found using `op account list`.
-    accounts: Vec<String>,
 }
 
 fn main() {
@@ -82,6 +82,15 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     let mut vaults_by_account: HashMap<Account, Vec<Vault>> = HashMap::new();
     let mut items_by_vault: HashMap<Vault, Vec<Item>> = HashMap::new();
 
+    println!(
+        "Exporting bookmarks for accounts {:?}",
+        accounts
+            .iter()
+            .map(|a| a.user_uuid.clone())
+            .collect::<Vec<String>>()
+    );
+
+    // Collect the vaults for each account
     for account in accounts.iter() {
         let vaults = find_vaults(account);
 
@@ -98,17 +107,8 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
 
+    // Collect the items for each vault
     for (account, vaults) in vaults_by_account.iter() {
-        if account.url == "agilebits.1password.com"
-            || account.user_uuid == "45AID2SX2JBFHDA2IRNB2WXZLA"
-            || account.user_uuid == "KDFJ5CQRGBDILKE5UKSPCUB46A"
-            || account.user_uuid == "MIUAPSEL2FGPVEH6SI54XXCKEM"
-        {
-            // Skip my massive accounts during testing
-            println!("Skipping account: {:?}", account);
-            continue;
-        }
-
         for vault in vaults.iter() {
             let items = find_items(account, vault);
 
@@ -126,13 +126,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
 
-    println!("Found {} accounts", accounts.len());
-    println!(
-        "Found {} vaults in {} accounts",
-        vaults_by_account.len(),
-        accounts.len()
-    );
-
+    // Write out metadata for each item
     for (account, vaults) in vaults_by_account.iter() {
         for vault in vaults.iter() {
             let items = items_by_vault.get(vault);
@@ -196,7 +190,6 @@ fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, serde
         for uuid in account_user_uuids.iter() {
             match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
                 Some(account) => {
-                    println!("Including account {}", uuid);
                     specified_accounts.push(account.clone());
                 }
                 None => {
