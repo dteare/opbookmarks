@@ -1,6 +1,6 @@
 # 1Password Bookmarks
 
-Several great utilities like [Alfred](https://www.alfredapp.com), [LaunchBar](https://www.obdev.at/products/launchbar/index.html), [Keyboard Maestro](https://www.keyboardmaestro.com/main/), and [Raycast](https://www.raycast.com) integrate with 1Password for Mac to provide 1Click Bookmarks[^1][^2][^3].
+Several great utilities like [Alfred](https://www.alfredapp.com), [Keyboard Maestro](https://www.keyboardmaestro.com/main/), [LaunchBar](https://www.obdev.at/products/launchbar/index.html), and [Raycast](https://www.raycast.com) integrate with 1Password for Mac to provide 1Click Bookmarks[^1][^2][^3].
 
 These integrations were powered by plain-text metadata that 1Password 7 users could opt-in to creating. This metadata was also indexed and searchable using Spotlight.
 
@@ -18,9 +18,9 @@ Built and tested with [Rust](https://www.rust-lang.org) 1.59.0.
 
 - `git clone`
 - `cd opbookmarks`
-- `cargo build`
+- `cargo build --release`
 
-The built executable can be found in `target/debug/opbookmarks`.
+The built executable can be found in `target/release/opbookmarks`.
 
 ## Usage
 
@@ -50,7 +50,7 @@ Use `--watch-path` to monitor the 1Password 8 data folder for changes. This uses
 
 Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example to watch a single account indefinitely, even after the Terminal window is closed:
 
-`nohup cargo run $EXPORT_DIR $OP8_DATA_DIR BXRGOJ2Z5JB4RMA7FUYUURELUE &`
+`nohup cargo run $EXPORT_DIR --watch-path $OP8_DATA_DIR BXRGOJ2Z5JB4RMA7FUYUURELUE &`
 
 ## History
 

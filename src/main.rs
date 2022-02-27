@@ -20,7 +20,7 @@ struct Cli {
     #[clap(parse(from_os_str), short, long)]
     watch_path: Option<std::path::PathBuf>,
 
-    /// Account user UUIDs to generate metadata for. Defaults to all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
+    /// Account user UUIDs to generate metadata for. Leave empty to export bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
     accounts: Vec<String>,
 }
 
