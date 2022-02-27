@@ -12,13 +12,13 @@ use std::{
 
 #[derive(Parser)]
 struct Cli {
-    /// The path to export the metadata files to. Typically the same path that 1Password 7 used, namely ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
+    /// The path to export the metadata files to. To use the same path that 1Password 7 used, specify ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
     #[clap(parse(from_os_str))]
     export_path: std::path::PathBuf,
 
     /// The path to the 1Password 8 database file to watch. Typically ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
-    #[clap(parse(from_os_str))]
-    watch_path: std::path::PathBuf,
+    #[clap(parse(from_os_str), short, long)]
+    watch_path: Option<std::path::PathBuf>,
 
     /// Account user UUIDs to generate metadata for. Defaults to all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
     accounts: Vec<String>,
@@ -49,9 +49,15 @@ struct Item {
     updated_at: String,
 }
 
+#[derive(Debug)]
+enum Error {
+    OPCLI(String),
+    Deserialize(serde_json::Error),
+    // Serialize(serde_json::Error),
+}
+
 fn main() {
     let args = Cli::parse();
-
     if args.accounts.len() == 0 {
         println!("Generating metadata for all accounts...");
     } else {
@@ -61,12 +67,11 @@ fn main() {
     generate_opbookmarks(&args.accounts, &args.export_path);
 
     // Watch for changes
-    println!(
-        "Watching 1Password 8 data folder for changes ({:?})",
-        args.watch_path
-    );
-    if let Err(e) = watch(args.watch_path, &args.accounts, &args.export_path) {
-        println!("error: {:?}", e)
+    if let Some(path) = args.watch_path {
+        println!("Watching 1Password 8 data folder for changes ({:?})", path);
+        if let Err(e) = watch(path, &args.accounts, &args.export_path) {
+            println!("error: {:?}", e)
+        }
     }
 }
 
@@ -74,7 +79,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     let accounts = find_accounts(account_user_uuids);
 
     if let Err(err) = accounts {
-        eprintln!("Failed to load accounts: {}", err);
+        eprintln!("Failed to load accounts: {:?}", err);
         exit(1);
     }
 
@@ -100,7 +105,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
             }
             Err(err) => {
                 eprintln!(
-                    "Failed to load vaults for account {}: {}",
+                    "Failed to load vaults for account {}: {:?}",
                     account.user_uuid, err
                 );
             }
@@ -118,7 +123,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
                 }
                 Err(err) => {
                     eprintln!(
-                        "Failed to load items for vault {} in account {}: {}",
+                        "Failed to load items for vault {} in account {}: {:?}",
                         vault.id, account.user_uuid, err
                     )
                 }
@@ -142,6 +147,104 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
     println!("Metadata files created.");
+}
+
+fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, Error> {
+    let output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("account")
+        .arg("list")
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    let accounts: Result<Vec<Account>, Error> =
+        serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e));
+
+    match accounts {
+        Ok(accounts) => {
+            if account_user_uuids.len() == 0 {
+                println!(
+                    "Including all found accounts for export: {}",
+                    accounts.len()
+                );
+                Ok(accounts)
+            } else {
+                // Limit to the specified accounts
+                let mut specified_accounts: Vec<Account> = vec![];
+                for uuid in account_user_uuids.iter() {
+                    match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
+                        Some(account) => {
+                            specified_accounts.push(account.clone());
+                        }
+                        None => {
+                            eprintln!(
+                                "Cannot include specified account {} for export as it couldn't be found",
+                                uuid
+                            );
+                        }
+                    }
+                }
+                Ok(specified_accounts)
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
+    println!("account={:?}", account);
+    let output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account.user_uuid.clone())
+        .arg("vault")
+        .arg("list")
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
+}
+
+fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, Error> {
+    let output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account.url.clone())
+        .arg("item")
+        .arg("list")
+        .arg("--vault")
+        .arg(vault.id.clone())
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
 fn write_items(
@@ -173,44 +276,6 @@ fn write_items(
     }
 }
 
-fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, serde_json::Error> {
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("account")
-        .arg("list")
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-
-    let accounts: Vec<Account> = serde_json::from_slice(json.as_slice())?;
-
-    if account_user_uuids.len() == 0 {
-        println!(
-            "Including all found accounts for export: {}",
-            accounts.len()
-        );
-        Ok(accounts)
-    } else {
-        // Limit to the specified accounts
-        let mut specified_accounts: Vec<Account> = vec![];
-        for uuid in account_user_uuids.iter() {
-            match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
-                Some(account) => {
-                    specified_accounts.push(account.clone());
-                }
-                None => {
-                    eprintln!(
-                        "Cannot include specified account {} for export as it couldn't be found",
-                        uuid
-                    );
-                }
-            }
-        }
-        Ok(specified_accounts)
-    }
-}
-
 fn write_file(path: std::path::PathBuf, contents: String) {
     use std::fs::File;
     use std::io::prelude::*;
@@ -231,59 +296,6 @@ fn write_file(path: std::path::PathBuf, contents: String) {
         Err(why) => panic!("couldn't write to {}: {}", display, why),
         Ok(_) => println!("successfully wrote to {}", display),
     }
-}
-
-fn find_vaults(account: &Account) -> Result<Vec<Vault>, serde_json::Error> {
-    println!("account={:?}", account);
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("--account")
-        .arg(account.user_uuid.clone())
-        .arg("vault")
-        .arg("list")
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-    let error = output.stderr;
-
-    if error.len() > 0 {
-        println!(
-            "Error from op: {}",
-            std::str::from_utf8(error.as_slice()).unwrap()
-        );
-    }
-
-    let vaults: Vec<Vault> = serde_json::from_slice(json.as_slice())?;
-
-    Ok(vaults)
-}
-
-fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, serde_json::Error> {
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("--account")
-        .arg(account.url.clone())
-        .arg("item")
-        .arg("list")
-        .arg("--vault")
-        .arg(vault.id.clone())
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-    let error = output.stderr;
-
-    if error.len() > 0 {
-        println!(
-            "Error from op item list: {}",
-            std::str::from_utf8(error.as_slice()).unwrap()
-        );
-    }
-
-    let items: Vec<Item> = serde_json::from_slice(json.as_slice())?;
-
-    Ok(items)
 }
 
 fn watch(
