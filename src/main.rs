@@ -232,7 +232,7 @@ fn find_vaults(account: &Account) -> Result<Vec<Vault>, serde_json::Error> {
         .arg("--format")
         .arg("json")
         .arg("--account")
-        .arg(account.url.clone())
+        .arg(account.user_uuid.clone())
         .arg("vault")
         .arg("list")
         .output()
