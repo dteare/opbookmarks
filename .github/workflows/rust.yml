@@ -25,3 +25,30 @@ jobs:
           name: opbookmarks
           path: |
             target/release/opbookmarks
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download opbookmarks artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: opbookmarks
+      - name: Create GitHub release
+        id: create-new-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: release/${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-new-release.outputs.upload_url }}
+          asset_path: ./opbookmarks
+          asset_name: opbookmarks
+          asset_content_type: application/octet-stream
