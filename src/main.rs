@@ -49,6 +49,47 @@ struct Item {
     updated_at: String,
 }
 
+#[derive(Debug, Serialize)]
+struct OP7ItemMetaData {
+    uuid: String,
+
+    #[serde(rename = "profileUUID")]
+    profile_uuid: String,
+
+    #[serde(rename = "vaultUUID")]
+    vault_uuid: String,
+
+    #[serde(rename = "categoryUUID")]
+    category_uuid: String,
+
+    #[serde(rename = "itemTitle")]
+    item_title: String,
+
+    #[serde(rename = "itemDescription")]
+    item_description: String,
+
+    #[serde(rename = "websiteURLs")]
+    website_urls: Vec<String>,
+
+    #[serde(rename = "accountName")]
+    account_name: String,
+
+    #[serde(rename = "vaultName")]
+    vault_name: String,
+
+    #[serde(rename = "categoryPluralName")]
+    category_plural_name: String,
+
+    #[serde(rename = "categorySingularName")]
+    category_singular_name: String,
+
+    #[serde(rename = "modifiedAt")]
+    modified_at: usize,
+
+    #[serde(rename = "createdAt")]
+    created_at: usize,
+}
+
 #[derive(Debug)]
 enum Error {
     OPCLI(String),
@@ -257,7 +298,9 @@ fn write_items(
     path.push(account.user_uuid.clone());
 
     for item in items.iter() {
-        match serde_json::to_string(&item) {
+        let op7_item = create_op7_metadata(&item, &vault, &account);
+
+        match serde_json::to_string(&op7_item) {
             Ok(json) => {
                 let mut path = path.clone();
                 path.push(format!(
@@ -274,6 +317,24 @@ fn write_items(
             }
         };
     }
+}
+
+fn create_op7_metadata(item: &Item, vault: &Vault, account: &Account) -> OP7ItemMetaData {
+    return OP7ItemMetaData {
+        uuid: item.id.clone(),
+        item_description: format!("Login from {}", &vault.name.clone().unwrap()),
+        item_title: item.title.clone(),
+        vault_name: vault.name.clone().unwrap().clone(),
+        vault_uuid: vault.id.clone(),
+        category_plural_name: item.category.clone(), // TODO: Map SECURE_NOTE, etc
+        profile_uuid: account.user_uuid.clone(),
+        website_urls: vec![],
+        category_singular_name: item.category.clone(),
+        category_uuid: "001".to_string(),
+        account_name: "".to_string(), // TODO: Not sure anyone uses this?
+        modified_at: 0,               // TODO: parse item.modified_at
+        created_at: 0,                // TODO: parse item.created_at,
+    };
 }
 
 fn write_file(path: std::path::PathBuf, contents: String) {
