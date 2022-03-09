@@ -116,7 +116,7 @@ fn create_op7_metadata(
         uuid: item.id.clone(),
         item_description: format!("Login from {}", &vault.name.clone()),
         item_title: item.title.clone(),
-        vault_name: vault.name.clone().clone(),
+        vault_name: vault.name.clone(),
         vault_uuid: vault.id.clone(),
         category_plural_name: item.category.clone(), // TODO: Map SECURE_NOTE, etc
         profile_uuid: account_id.clone(),
