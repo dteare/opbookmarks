@@ -181,36 +181,77 @@ pub fn get_account(user_id: &String) -> Result<AccountDetails, Error> {
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
+// op --format json --account A vault list | op --format json --account A vault get --format json -
 pub fn load_all_vaults(account_id: &String) -> Result<Vec<VaultDetails>, Error> {
-    let vaults = find_vaults(&account_id);
+    let output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account_id)
+        .arg("vault")
+        .arg("list")
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
 
-    match vaults {
-        Ok(vaults) => {
-            let mut details: Vec<VaultDetails> = vec![];
-            for vault in vaults.iter() {
-                let ad = get_vault(&account_id, &vault.id);
-
-                match ad {
-                    Ok(ad) => details.push(ad),
-                    Err(e) => {
-                        eprint!(
-                            "Error loading vault details for account {}: {:?}",
-                            account_id, e
-                        );
-                        return Err(Error::OPCLI(format!(
-                            "Failed to load details for account {}",
-                            account_id
-                        )));
-                    }
-                }
-            }
-
-            Ok(details)
-        }
-        Err(e) => Err(e),
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
     }
+
+    let mut vault_details_cmd = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account_id)
+        .arg("vault")
+        .arg("get")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to execute `op` command");
+
+    use std::io::Write;
+    vault_details_cmd
+        .stdin
+        .as_mut()
+        .expect("Child process vault get stdin has not been captured!")
+        .write_all(&json)
+        .expect("Failed to write stdin");
+
+    let output = vault_details_cmd
+        .wait_with_output()
+        .expect("failed to execute `op vault get -` command");
+
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    let mut de = serde_json::Deserializer::from_slice(&json);
+    let mut vaults = Vec::new();
+
+    while de.end().is_err() {
+        let vault = VaultDetails::deserialize(&mut de);
+
+        match vault {
+            Ok(vault) => vaults.push(vault),
+            Err(err) => eprintln!("Failed to deserialize vault json: {}", err),
+        }
+    }
+
+    Ok(vaults)
 }
 
+#[allow(dead_code)]
 pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
@@ -234,6 +275,7 @@ pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json vault get jnnjfdrzr5rawkimmsvp3zzzxe
+#[allow(dead_code)]
 pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails, Error> {
     let output = Command::new("op")
         .arg("--format")
@@ -257,6 +299,7 @@ pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails,
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
+// op --format json --account A --vault V item list | op --format json --account A --vault V item get --format json -
 pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemDetails>, Error> {
     let list_output = Command::new("op")
         .arg("--format")
@@ -330,6 +373,7 @@ pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<Item
     Ok(items)
 }
 
+#[allow(dead_code)]
 pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
@@ -355,6 +399,7 @@ pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOver
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --vault jnnjfdrzr5rawkimmsvp3zzzxe --format json item get fu5rgmahfihx4j6lludeyx3oei
+#[allow(dead_code)]
 pub fn get_item(
     account_id: &String,
     vault_id: &String,
