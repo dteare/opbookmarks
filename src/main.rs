@@ -1,14 +1,15 @@
 extern crate notify;
 
+mod op;
+
+use op::{find_accounts, find_items, find_vaults, Account, Item, Vault};
+
 use clap::Parser;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::channel;
 use std::time::Duration;
-use std::{
-    collections::HashMap,
-    process::{exit, Command},
-};
+use std::{collections::HashMap, process::exit};
 
 #[derive(Parser)]
 struct Cli {
@@ -25,31 +26,6 @@ struct Cli {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-struct Account {
-    email: String,
-    url: String,
-    user_uuid: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-struct Vault {
-    id: String,
-    name: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-struct Item {
-    id: String,
-    title: String,
-    version: usize,
-    vault: Vault,
-    category: String,
-    last_edited_by: String,
-    created_at: String,
-    updated_at: String,
-}
-
-#[derive(Debug, Serialize)]
 struct OP7ItemMetaData {
     uuid: String,
 
@@ -88,13 +64,6 @@ struct OP7ItemMetaData {
 
     #[serde(rename = "createdAt")]
     created_at: usize,
-}
-
-#[derive(Debug)]
-enum Error {
-    OPCLI(String),
-    Deserialize(serde_json::Error),
-    // Serialize(serde_json::Error),
 }
 
 fn main() {
@@ -188,104 +157,6 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
     println!("Metadata files created.");
-}
-
-fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, Error> {
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("account")
-        .arg("list")
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-    let error = output.stderr;
-
-    if error.len() > 0 {
-        return Err(Error::OPCLI(
-            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
-        ));
-    }
-
-    let accounts: Result<Vec<Account>, Error> =
-        serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e));
-
-    match accounts {
-        Ok(accounts) => {
-            if account_user_uuids.len() == 0 {
-                println!(
-                    "Including all found accounts for export: {}",
-                    accounts.len()
-                );
-                Ok(accounts)
-            } else {
-                // Limit to the specified accounts
-                let mut specified_accounts: Vec<Account> = vec![];
-                for uuid in account_user_uuids.iter() {
-                    match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
-                        Some(account) => {
-                            specified_accounts.push(account.clone());
-                        }
-                        None => {
-                            eprintln!(
-                                "Cannot include specified account {} for export as it couldn't be found",
-                                uuid
-                            );
-                        }
-                    }
-                }
-                Ok(specified_accounts)
-            }
-        }
-        Err(e) => Err(e),
-    }
-}
-
-fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
-    println!("account={:?}", account);
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("--account")
-        .arg(account.user_uuid.clone())
-        .arg("vault")
-        .arg("list")
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-    let error = output.stderr;
-
-    if error.len() > 0 {
-        return Err(Error::OPCLI(
-            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
-        ));
-    }
-
-    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
-}
-
-fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, Error> {
-    let output = Command::new("op")
-        .arg("--format")
-        .arg("json")
-        .arg("--account")
-        .arg(account.url.clone())
-        .arg("item")
-        .arg("list")
-        .arg("--vault")
-        .arg(vault.id.clone())
-        .output()
-        .expect("failed to execute `op` command");
-    let json = output.stdout;
-    let error = output.stderr;
-
-    if error.len() > 0 {
-        return Err(Error::OPCLI(
-            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
-        ));
-    }
-
-    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
 fn write_items(
