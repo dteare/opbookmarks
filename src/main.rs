@@ -2,7 +2,7 @@ mod op;
 mod op7_metadata;
 
 use op::{
-    find_items, load_all_accounts, load_all_vaults, AccountDetails, ItemOverview, VaultDetails,
+    load_all_accounts, load_all_items, load_all_vaults, AccountDetails, ItemDetails, VaultDetails,
 };
 use op7_metadata::write_items;
 
@@ -58,7 +58,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
 
     let accounts = accounts.unwrap();
     let mut vaults_by_account: HashMap<AccountDetails, Vec<VaultDetails>> = HashMap::new();
-    let mut items_by_vault: HashMap<VaultDetails, Vec<ItemOverview>> = HashMap::new();
+    let mut items_by_vault: HashMap<VaultDetails, Vec<ItemDetails>> = HashMap::new();
 
     println!(
         "Exporting bookmarks for accounts {:?}",
@@ -88,7 +88,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     // Collect the items for each vault
     for (account, vaults) in vaults_by_account.iter() {
         for vault in vaults.iter() {
-            let items = find_items(&account.id, &vault.id);
+            let items = load_all_items(&account.id, &vault.id);
 
             match items {
                 Ok(items) => {

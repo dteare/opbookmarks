@@ -1,5 +1,5 @@
 /// Create metadata files that conform to the format used by 1Password 7
-use crate::op::{AccountDetails, ItemOverview, VaultDetails};
+use crate::op::{AccountDetails, ItemDetails, VaultDetails};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -45,7 +45,7 @@ pub struct OP7ItemMetaData {
 
 pub fn write_items(
     export_path: &std::path::PathBuf,
-    items: &Vec<ItemOverview>,
+    items: &Vec<ItemDetails>,
     vault: &VaultDetails,
     account: &AccountDetails,
 ) {
@@ -97,10 +97,21 @@ fn write_file(path: std::path::PathBuf, contents: String) {
 }
 
 fn create_op7_metadata(
-    item: &ItemOverview,
+    item: &ItemDetails,
     vault: &VaultDetails,
     account_id: &String,
 ) -> OP7ItemMetaData {
+    let website_urls = match &item.urls {
+        Some(urls) => {
+            let mut result: Vec<String> = vec![];
+            for url in urls.iter() {
+                result.push(url.href.clone());
+            }
+            result
+        }
+        None => vec![],
+    };
+
     return OP7ItemMetaData {
         uuid: item.id.clone(),
         item_description: format!("Login from {}", &vault.name.clone()),
@@ -109,7 +120,7 @@ fn create_op7_metadata(
         vault_uuid: vault.id.clone(),
         category_plural_name: item.category.clone(), // TODO: Map SECURE_NOTE, etc
         profile_uuid: account_id.clone(),
-        website_urls: vec![],
+        website_urls: website_urls,
         category_singular_name: item.category.clone(),
         category_uuid: "001".to_string(),
         account_name: "".to_string(), // TODO: Not sure anyone uses this?

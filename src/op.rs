@@ -57,19 +57,19 @@ pub struct ItemOverview {
 pub struct ItemDetails {
     pub id: String,
     pub title: String,
-    pub tags: Vec<String>,
+    pub tags: Option<Vec<String>>,
     pub version: usize,
     pub vault: VaultOverview,
     pub category: String,
     pub last_edited_by: String,
     pub created_at: String,
     pub updated_at: String,
-    pub urls: Vec<OPURL>,
+    pub urls: Option<Vec<OPURL>>,
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct OPURL {
-    pub primary: bool,
+    pub primary: Option<bool>,
     pub href: String,
 }
 
@@ -257,6 +257,36 @@ pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails,
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
+pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemDetails>, Error> {
+    let items = find_items(&account_id, &vault_id);
+
+    match items {
+        Ok(items) => {
+            let mut details: Vec<ItemDetails> = vec![];
+            for item in items.iter() {
+                let item_details = get_item(&account_id, &vault_id, &item.id);
+
+                match item_details {
+                    Ok(d) => details.push(d),
+                    Err(e) => {
+                        eprint!(
+                            "Error loading item {} in vault {} for account {}: {:?}",
+                            item.id, vault_id, account_id, e
+                        );
+                        return Err(Error::OPCLI(format!(
+                            "Failed to load details for account {}",
+                            account_id
+                        )));
+                    }
+                }
+            }
+
+            Ok(details)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
@@ -283,15 +313,15 @@ pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOver
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --vault jnnjfdrzr5rawkimmsvp3zzzxe --format json item get fu5rgmahfihx4j6lludeyx3oei
 pub fn get_item(
-    account: &AccountOverview,
-    vault: &VaultOverview,
-    item_id: String,
+    account_id: &String,
+    vault_id: &String,
+    item_id: &String,
 ) -> Result<ItemDetails, Error> {
     let output = Command::new("op")
         .arg("--account")
-        .arg(account.url.clone())
+        .arg(account_id)
         .arg("--vault")
-        .arg(vault.id.clone())
+        .arg(vault_id)
         .arg("--format")
         .arg("json")
         .arg("item")
