@@ -33,7 +33,6 @@ pub struct VaultDetails {
 
     pub attribute_version: usize,
     pub content_version: usize,
-    pub items: usize,
 
     #[serde(rename = "type")]
     pub vault_type: String,
@@ -182,6 +181,36 @@ pub fn get_account(user_id: &String) -> Result<AccountDetails, Error> {
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
+pub fn load_all_vaults(account_id: &String) -> Result<Vec<VaultDetails>, Error> {
+    let vaults = find_vaults(&account_id);
+
+    match vaults {
+        Ok(vaults) => {
+            let mut details: Vec<VaultDetails> = vec![];
+            for vault in vaults.iter() {
+                let ad = get_vault(&account_id, &vault.id);
+
+                match ad {
+                    Ok(ad) => details.push(ad),
+                    Err(e) => {
+                        eprint!(
+                            "Error loading vault details for account {}: {:?}",
+                            account_id, e
+                        );
+                        return Err(Error::OPCLI(format!(
+                            "Failed to load details for account {}",
+                            account_id
+                        )));
+                    }
+                }
+            }
+
+            Ok(details)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
@@ -205,12 +234,12 @@ pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json vault get jnnjfdrzr5rawkimmsvp3zzzxe
-pub fn get_vault(account: &AccountOverview, vault_id: String) -> Result<VaultDetails, Error> {
+pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails, Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
         .arg("--account")
-        .arg(account.user_uuid.clone())
+        .arg(account_id)
         .arg("vault")
         .arg("get")
         .arg(vault_id)

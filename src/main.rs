@@ -1,7 +1,9 @@
 mod op;
 mod op7_metadata;
 
-use op::{find_items, find_vaults, load_all_accounts, AccountDetails, ItemOverview, VaultOverview};
+use op::{
+    find_items, load_all_accounts, load_all_vaults, AccountDetails, ItemOverview, VaultDetails,
+};
 use op7_metadata::write_items;
 
 use clap::Parser;
@@ -55,8 +57,8 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     }
 
     let accounts = accounts.unwrap();
-    let mut vaults_by_account: HashMap<AccountDetails, Vec<VaultOverview>> = HashMap::new();
-    let mut items_by_vault: HashMap<VaultOverview, Vec<ItemOverview>> = HashMap::new();
+    let mut vaults_by_account: HashMap<AccountDetails, Vec<VaultDetails>> = HashMap::new();
+    let mut items_by_vault: HashMap<VaultDetails, Vec<ItemOverview>> = HashMap::new();
 
     println!(
         "Exporting bookmarks for accounts {:?}",
@@ -68,7 +70,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
 
     // Collect the vaults for each account
     for account in accounts.iter() {
-        let vaults = find_vaults(&account.id);
+        let vaults = load_all_vaults(&account.id);
 
         match vaults {
             Ok(vaults) => {

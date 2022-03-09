@@ -1,5 +1,5 @@
 /// Create metadata files that conform to the format used by 1Password 7
-use crate::op::{AccountDetails, ItemOverview, VaultOverview};
+use crate::op::{AccountDetails, ItemOverview, VaultDetails};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -46,7 +46,7 @@ pub struct OP7ItemMetaData {
 pub fn write_items(
     export_path: &std::path::PathBuf,
     items: &Vec<ItemOverview>,
-    vault: &VaultOverview,
+    vault: &VaultDetails,
     account: &AccountDetails,
 ) {
     let mut path = export_path.clone();
@@ -98,14 +98,14 @@ fn write_file(path: std::path::PathBuf, contents: String) {
 
 fn create_op7_metadata(
     item: &ItemOverview,
-    vault: &VaultOverview,
+    vault: &VaultDetails,
     account_id: &String,
 ) -> OP7ItemMetaData {
     return OP7ItemMetaData {
         uuid: item.id.clone(),
-        item_description: format!("Login from {}", &vault.name.clone().unwrap()),
+        item_description: format!("Login from {}", &vault.name.clone()),
         item_title: item.title.clone(),
-        vault_name: vault.name.clone().unwrap().clone(),
+        vault_name: vault.name.clone().clone(),
         vault_uuid: vault.id.clone(),
         category_plural_name: item.category.clone(), // TODO: Map SECURE_NOTE, etc
         profile_uuid: account_id.clone(),
