@@ -1,6 +1,6 @@
 /// Uses the `op` CLI to load Account, Vault, and Item information
 use serde::{Deserialize, Serialize};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct AccountOverview {
@@ -258,33 +258,76 @@ pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails,
 }
 
 pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemDetails>, Error> {
-    let items = find_items(&account_id, &vault_id);
+    let list_output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account_id)
+        .arg("--vault")
+        .arg(vault_id)
+        .arg("item")
+        .arg("list")
+        .output()
+        .expect("failed to execute `op item list` command");
+    let json = list_output.stdout;
+    let error = list_output.stderr;
 
-    match items {
-        Ok(items) => {
-            let mut details: Vec<ItemDetails> = vec![];
-            for item in items.iter() {
-                let item_details = get_item(&account_id, &vault_id, &item.id);
-
-                match item_details {
-                    Ok(d) => details.push(d),
-                    Err(e) => {
-                        eprint!(
-                            "Error loading item {} in vault {} for account {}: {:?}",
-                            item.id, vault_id, account_id, e
-                        );
-                        return Err(Error::OPCLI(format!(
-                            "Failed to load details for account {}",
-                            account_id
-                        )));
-                    }
-                }
-            }
-
-            Ok(details)
-        }
-        Err(e) => Err(e),
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
     }
+
+    let mut item_details_cmd = Command::new("op")
+        .arg("--account")
+        .arg(account_id)
+        .arg("--vault")
+        .arg(vault_id)
+        .arg("item")
+        .arg("get")
+        .arg("--format")
+        .arg("json")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to execute `op` command");
+
+    use std::io::Write;
+    item_details_cmd
+        .stdin
+        .as_mut()
+        .expect("Child process stdin has not been captured!")
+        .write_all(&json)
+        .expect("Failed to write stdin");
+
+    let output = item_details_cmd
+        .wait_with_output()
+        .expect("failed to execute `op item get -` command");
+
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    let mut de = serde_json::Deserializer::from_slice(&json);
+    let mut items = Vec::new();
+
+    while de.end().is_err() {
+        let item = ItemDetails::deserialize(&mut de);
+
+        match item {
+            Ok(item) => items.push(item),
+            Err(err) => eprintln!("Failed to deserialize vault json: {}", err),
+        }
+    }
+
+    Ok(items)
 }
 
 pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
