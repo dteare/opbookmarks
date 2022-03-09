@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct Account {
+pub struct AccountOverview {
     pub email: String,
     pub url: String,
     pub user_uuid: String,
@@ -11,17 +11,17 @@ pub struct Account {
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct AccountDetails {
-    id: String,
-    name: String,
-    domain: String,
+    pub id: String,
+    pub name: String,
+    pub domain: String,
 
     #[serde(rename = "type")]
-    account_type: String,
-    state: String,
-    created_at: String,
+    pub account_type: String,
+    pub state: String,
+    pub created_at: String,
 }
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct Vault {
+pub struct VaultOverview {
     pub id: String,
     pub name: Option<String>,
 }
@@ -43,11 +43,11 @@ pub struct VaultDetails {
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct Item {
+pub struct ItemOverview {
     pub id: String,
     pub title: String,
     pub version: usize,
-    pub vault: Vault,
+    pub vault: VaultOverview,
     pub category: String,
     pub last_edited_by: String,
     pub created_at: String,
@@ -56,22 +56,22 @@ pub struct Item {
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ItemDetails {
-    id: String,
-    title: String,
-    tags: Vec<String>,
-    version: usize,
-    vault: Vault,
-    category: String,
-    last_edited_by: String,
-    created_at: String,
-    updated_at: String,
-    urls: Vec<OPURL>,
+    pub id: String,
+    pub title: String,
+    pub tags: Vec<String>,
+    pub version: usize,
+    pub vault: VaultOverview,
+    pub category: String,
+    pub last_edited_by: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub urls: Vec<OPURL>,
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct OPURL {
-    primary: bool,
-    href: String,
+    pub primary: bool,
+    pub href: String,
 }
 
 #[derive(Debug)]
@@ -81,7 +81,34 @@ pub enum Error {
     // Serialize(serde_json::Error),
 }
 
-pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, Error> {
+pub fn load_all_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<AccountDetails>, Error> {
+    let accounts = find_accounts(account_user_uuids);
+
+    match accounts {
+        Ok(accounts) => {
+            let mut details: Vec<AccountDetails> = vec![];
+            for account in accounts.iter() {
+                let ad = get_account(&account.user_uuid);
+
+                match ad {
+                    Ok(ad) => details.push(ad),
+                    Err(e) => {
+                        eprint!("Error loading account details: {:?}", e);
+                        return Err(Error::OPCLI(format!(
+                            "Failed to load details for account {}",
+                            account.user_uuid
+                        )));
+                    }
+                }
+            }
+
+            Ok(details)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<AccountOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
@@ -98,7 +125,7 @@ pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, E
         ));
     }
 
-    let accounts: Result<Vec<Account>, Error> =
+    let accounts: Result<Vec<AccountOverview>, Error> =
         serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e));
 
     match accounts {
@@ -111,7 +138,7 @@ pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, E
                 Ok(accounts)
             } else {
                 // Limit to the specified accounts
-                let mut specified_accounts: Vec<Account> = vec![];
+                let mut specified_accounts: Vec<AccountOverview> = vec![];
                 for uuid in account_user_uuids.iter() {
                     match accounts.iter().find(|a| (*a).user_uuid == uuid.as_str()) {
                         Some(account) => {
@@ -133,7 +160,7 @@ pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, E
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json account get
-pub fn get_account(user_id: String) -> Result<AccountDetails, Error> {
+pub fn get_account(user_id: &String) -> Result<AccountDetails, Error> {
     let output = Command::new("op")
         .arg("--account")
         .arg(user_id)
@@ -155,13 +182,12 @@ pub fn get_account(user_id: String) -> Result<AccountDetails, Error> {
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
-pub fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
-    println!("account={:?}", account);
+pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
         .arg("--account")
-        .arg(account.user_uuid.clone())
+        .arg(account_id)
         .arg("vault")
         .arg("list")
         .output()
@@ -179,7 +205,7 @@ pub fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json vault get jnnjfdrzr5rawkimmsvp3zzzxe
-pub fn get_vault(account: &Account, vault_id: String) -> Result<VaultDetails, Error> {
+pub fn get_vault(account: &AccountOverview, vault_id: String) -> Result<VaultDetails, Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
@@ -202,16 +228,16 @@ pub fn get_vault(account: &Account, vault_id: String) -> Result<VaultDetails, Er
     serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
 }
 
-pub fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, Error> {
+pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
     let output = Command::new("op")
         .arg("--format")
         .arg("json")
         .arg("--account")
-        .arg(account.url.clone())
+        .arg(account_id)
         .arg("item")
         .arg("list")
         .arg("--vault")
-        .arg(vault.id.clone())
+        .arg(vault_id)
         .output()
         .expect("failed to execute `op` command");
     let json = output.stdout;
@@ -227,7 +253,11 @@ pub fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, Error> 
 }
 
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --vault jnnjfdrzr5rawkimmsvp3zzzxe --format json item get fu5rgmahfihx4j6lludeyx3oei
-pub fn get_item(account: &Account, vault: &Vault, item_id: String) -> Result<ItemDetails, Error> {
+pub fn get_item(
+    account: &AccountOverview,
+    vault: &VaultOverview,
+    item_id: String,
+) -> Result<ItemDetails, Error> {
     let output = Command::new("op")
         .arg("--account")
         .arg(account.url.clone())

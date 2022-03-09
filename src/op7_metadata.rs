@@ -1,5 +1,5 @@
 /// Create metadata files that conform to the format used by 1Password 7
-use crate::op::{Account, Item, Vault};
+use crate::op::{AccountDetails, ItemOverview, VaultOverview};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -45,15 +45,15 @@ pub struct OP7ItemMetaData {
 
 pub fn write_items(
     export_path: &std::path::PathBuf,
-    items: &Vec<Item>,
-    vault: &Vault,
-    account: &Account,
+    items: &Vec<ItemOverview>,
+    vault: &VaultOverview,
+    account: &AccountDetails,
 ) {
     let mut path = export_path.clone();
-    path.push(account.user_uuid.clone());
+    path.push(account.id.clone());
 
     for item in items.iter() {
-        let op7_item = create_op7_metadata(&item, &vault, &account);
+        let op7_item = create_op7_metadata(&item, &vault, &account.id);
 
         match serde_json::to_string(&op7_item) {
             Ok(json) => {
@@ -96,7 +96,11 @@ fn write_file(path: std::path::PathBuf, contents: String) {
     }
 }
 
-fn create_op7_metadata(item: &Item, vault: &Vault, account: &Account) -> OP7ItemMetaData {
+fn create_op7_metadata(
+    item: &ItemOverview,
+    vault: &VaultOverview,
+    account_id: &String,
+) -> OP7ItemMetaData {
     return OP7ItemMetaData {
         uuid: item.id.clone(),
         item_description: format!("Login from {}", &vault.name.clone().unwrap()),
@@ -104,7 +108,7 @@ fn create_op7_metadata(item: &Item, vault: &Vault, account: &Account) -> OP7Item
         vault_name: vault.name.clone().unwrap().clone(),
         vault_uuid: vault.id.clone(),
         category_plural_name: item.category.clone(), // TODO: Map SECURE_NOTE, etc
-        profile_uuid: account.user_uuid.clone(),
+        profile_uuid: account_id.clone(),
         website_urls: vec![],
         category_singular_name: item.category.clone(),
         category_uuid: "001".to_string(),

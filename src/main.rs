@@ -1,7 +1,7 @@
 mod op;
 mod op7_metadata;
 
-use op::{find_accounts, find_items, find_vaults, Account, Item, Vault};
+use op::{find_items, find_vaults, load_all_accounts, AccountDetails, ItemOverview, VaultOverview};
 use op7_metadata::write_items;
 
 use clap::Parser;
@@ -27,9 +27,12 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
     if args.accounts.len() == 0 {
-        println!("Generating metadata for all accounts...");
+        println!("Will create bookmark metadata for all accounts...");
     } else {
-        println!("Generating metadata for {:?}", args.accounts);
+        println!(
+            "Will create bookmark metadata for account user uuids {:?}...",
+            args.accounts
+        );
     }
 
     generate_opbookmarks(&args.accounts, &args.export_path);
@@ -44,7 +47,7 @@ fn main() {
 }
 
 fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::path::PathBuf) {
-    let accounts = find_accounts(account_user_uuids);
+    let accounts = load_all_accounts(account_user_uuids);
 
     if let Err(err) = accounts {
         eprintln!("Failed to load accounts: {:?}", err);
@@ -52,20 +55,20 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     }
 
     let accounts = accounts.unwrap();
-    let mut vaults_by_account: HashMap<Account, Vec<Vault>> = HashMap::new();
-    let mut items_by_vault: HashMap<Vault, Vec<Item>> = HashMap::new();
+    let mut vaults_by_account: HashMap<AccountDetails, Vec<VaultOverview>> = HashMap::new();
+    let mut items_by_vault: HashMap<VaultOverview, Vec<ItemOverview>> = HashMap::new();
 
     println!(
         "Exporting bookmarks for accounts {:?}",
         accounts
             .iter()
-            .map(|a| a.user_uuid.clone())
+            .map(|a| a.id.clone())
             .collect::<Vec<String>>()
     );
 
     // Collect the vaults for each account
     for account in accounts.iter() {
-        let vaults = find_vaults(account);
+        let vaults = find_vaults(&account.id);
 
         match vaults {
             Ok(vaults) => {
@@ -74,7 +77,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
             Err(err) => {
                 eprintln!(
                     "Failed to load vaults for account {}: {:?}",
-                    account.user_uuid, err
+                    account.id, err
                 );
             }
         }
@@ -83,7 +86,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
     // Collect the items for each vault
     for (account, vaults) in vaults_by_account.iter() {
         for vault in vaults.iter() {
-            let items = find_items(account, vault);
+            let items = find_items(&account.id, &vault.id);
 
             match items {
                 Ok(items) => {
@@ -92,7 +95,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
                 Err(err) => {
                     eprintln!(
                         "Failed to load items for vault {} in account {}: {:?}",
-                        vault.id, account.user_uuid, err
+                        vault.id, account.id, err
                     )
                 }
             }
