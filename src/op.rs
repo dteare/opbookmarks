@@ -10,9 +10,36 @@ pub struct Account {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct AccountDetails {
+    id: String,
+    name: String,
+    domain: String,
+
+    #[serde(rename = "type")]
+    account_type: String,
+    state: String,
+    created_at: String,
+}
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Vault {
     pub id: String,
     pub name: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct VaultDetails {
+    pub id: String,
+    pub name: String,
+
+    pub attribute_version: usize,
+    pub content_version: usize,
+    pub items: usize,
+
+    #[serde(rename = "type")]
+    pub vault_type: String,
+
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -25,6 +52,26 @@ pub struct Item {
     pub last_edited_by: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct ItemDetails {
+    id: String,
+    title: String,
+    tags: Vec<String>,
+    version: usize,
+    vault: Vault,
+    category: String,
+    last_edited_by: String,
+    created_at: String,
+    updated_at: String,
+    urls: Vec<OPURL>,
+}
+
+#[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct OPURL {
+    primary: bool,
+    href: String,
 }
 
 #[derive(Debug)]
@@ -85,6 +132,29 @@ pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account>, E
     }
 }
 
+// op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json account get
+pub fn get_account(user_id: String) -> Result<AccountDetails, Error> {
+    let output = Command::new("op")
+        .arg("--account")
+        .arg(user_id)
+        .arg("--format")
+        .arg("json")
+        .arg("account")
+        .arg("get")
+        .output()
+        .expect("failed to execute `op` command for get_account");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
+}
+
 pub fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
     println!("account={:?}", account);
     let output = Command::new("op")
@@ -94,6 +164,30 @@ pub fn find_vaults(account: &Account) -> Result<Vec<Vault>, Error> {
         .arg(account.user_uuid.clone())
         .arg("vault")
         .arg("list")
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
+}
+
+// op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json vault get jnnjfdrzr5rawkimmsvp3zzzxe
+pub fn get_vault(account: &Account, vault_id: String) -> Result<VaultDetails, Error> {
+    let output = Command::new("op")
+        .arg("--format")
+        .arg("json")
+        .arg("--account")
+        .arg(account.user_uuid.clone())
+        .arg("vault")
+        .arg("get")
+        .arg(vault_id)
         .output()
         .expect("failed to execute `op` command");
     let json = output.stdout;
@@ -118,6 +212,32 @@ pub fn find_items(account: &Account, vault: &Vault) -> Result<Vec<Item>, Error> 
         .arg("list")
         .arg("--vault")
         .arg(vault.id.clone())
+        .output()
+        .expect("failed to execute `op` command");
+    let json = output.stdout;
+    let error = output.stderr;
+
+    if error.len() > 0 {
+        return Err(Error::OPCLI(
+            std::str::from_utf8(error.as_slice()).unwrap().to_string(),
+        ));
+    }
+
+    serde_json::from_slice(json.as_slice()).map_err(|e| Error::Deserialize(e))
+}
+
+// op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --vault jnnjfdrzr5rawkimmsvp3zzzxe --format json item get fu5rgmahfihx4j6lludeyx3oei
+pub fn get_item(account: &Account, vault: &Vault, item_id: String) -> Result<ItemDetails, Error> {
+    let output = Command::new("op")
+        .arg("--account")
+        .arg(account.url.clone())
+        .arg("--vault")
+        .arg(vault.id.clone())
+        .arg("--format")
+        .arg("json")
+        .arg("item")
+        .arg("get")
+        .arg(item_id)
         .output()
         .expect("failed to execute `op` command");
     let json = output.stdout;
