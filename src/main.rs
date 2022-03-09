@@ -119,7 +119,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
             }
         }
     }
-    println!("Metadata files created.");
+    println!("Metadata files written to {:?}.", export_path);
 }
 
 fn watch(
