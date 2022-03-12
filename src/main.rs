@@ -8,19 +8,20 @@ use op7_metadata::write_items;
 
 use clap::Parser;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 use std::{collections::HashMap, process::exit};
 
 #[derive(Parser)]
 struct Cli {
-    /// The path to export the metadata files to. To use the same path that 1Password 7 used, specify ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
-    #[clap(parse(from_os_str))]
-    export_path: std::path::PathBuf,
-
-    /// The path to the 1Password 8 database file to watch. Typically ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
+    /// The path to export the metadata files to. Defaults to ~/.config/op/bookmarks. For backwards compatibility with 1Password 7 use ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
     #[clap(parse(from_os_str), short, long)]
-    watch_path: Option<std::path::PathBuf>,
+    export_path: Option<PathBuf>,
+
+    /// The path to the 1Password 8 database file to watch. Defaults to ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
+    #[clap(parse(from_os_str), short, long)]
+    watch_path: Option<PathBuf>,
 
     /// Account user UUIDs to generate metadata for. Leave empty to export bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
     accounts: Vec<String>,
@@ -37,15 +38,26 @@ fn main() {
         );
     }
 
-    generate_opbookmarks(&args.accounts, &args.export_path);
+    let export_path = export_path(args.export_path);
+    generate_opbookmarks(&args.accounts, &export_path);
 
     // Watch for changes
     if let Some(path) = args.watch_path {
         println!("Watching 1Password 8 data folder for changes ({:?})", path);
-        if let Err(e) = watch(path, &args.accounts, &args.export_path) {
+        if let Err(e) = watch(path, &args.accounts, &export_path) {
             println!("error: {:?}", e)
         }
     }
+}
+
+fn export_path(cli_path: Option<PathBuf>) -> PathBuf {
+    if let Some(path) = cli_path {
+        return path;
+    }
+
+    let mut path = dirs::home_dir().unwrap();
+    path.push(".config/op/bookmarks");
+    path
 }
 
 fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::path::PathBuf) {

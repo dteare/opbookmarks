@@ -28,29 +28,30 @@ You will need [1Password 8](http://1password.com/downloads/mac/#beta-downloads) 
 
 ```
 USAGE:
-    opbookmarks [OPTIONS] <EXPORT_PATH> [ACCOUNTS]...
+    opbookmarks [OPTIONS] [ACCOUNTS]...
 
 ARGS:
-    <EXPORT_PATH>    The path to export the metadata files to. To use the same path that
-                     1Password 7 used, specify
-                     ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
-    <ACCOUNTS>...    Account user UUIDs to generate metadata for. Defaults to all accounts. Use
-                     spaces to separate multiple accounts. UUIDs can be found using `op account
-                     list`
+    <ACCOUNTS>...    Account user UUIDs to generate metadata for. Leave empty to export
+                     bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs
+                     can be found using `op account list`
 
 OPTIONS:
-    -h, --help                       Print help information
-    -w, --watch-path <WATCH_PATH>    The path to the 1Password 8 database file to watch. Typically
-                                     ~/Library/Group\
-                                     Containers/2BUA8C4S2C.com.1password/Library/Application\
-                                     Support/1Password/Data
+    -e, --export-path <EXPORT_PATH>    The path to export the metadata files to. Defaults to
+                                       ~/.config/op/bookmarks. For backwards compatibility with
+                                       1Password 7 use
+                                       ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
+    -h, --help                         Print help information
+    -w, --watch-path <WATCH_PATH>      The path to the 1Password 8 database file to watch. Defaults
+                                       to ~/Library/Group\
+                                       Containers/2BUA8C4S2C.com.1password/Library/Application\
+                                       Support/1Password/Data
 ```
 
 Use `--watch-path` to monitor the 1Password 8 data folder for changes. This uses the FSEvents API provided by Apple which is efficient enough to leave running in the background indefinitely.
 
 Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example to watch a single account indefinitely, even after the Terminal window is closed:
 
-`nohup cargo run $EXPORT_DIR --watch-path $OP8_DATA_DIR BXRGOJ2Z5JB4RMA7FUYUURELUE &`
+`nohup opbookmarks --watch-path $OP8_DATA_DIR BXRGOJ2Z5JB4RMA7FUYUURELUE &`
 
 ## History
 
