@@ -92,7 +92,7 @@ fn write_file(path: std::path::PathBuf, contents: String) {
 
     match file.write_all(contents.as_bytes()) {
         Err(why) => panic!("couldn't write to {}: {}", display, why),
-        Ok(_) => println!("successfully wrote to {}", display),
+        Ok(_) => {}
     }
 }
 
