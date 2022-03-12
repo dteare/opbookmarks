@@ -109,6 +109,7 @@ pub fn load_all_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account
 
 pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<AccountOverview>, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("account")
@@ -161,6 +162,7 @@ pub fn find_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<AccountOver
 // op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --format json account get
 pub fn get_account(user_id: &String) -> Result<AccountDetails, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--account")
         .arg(user_id)
         .arg("--format")
@@ -184,6 +186,7 @@ pub fn get_account(user_id: &String) -> Result<AccountDetails, Error> {
 // op --format json --account A vault list | op --format json --account A vault get --format json -
 pub fn load_all_vaults(account_id: &String) -> Result<Vec<VaultDetails>, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -202,6 +205,7 @@ pub fn load_all_vaults(account_id: &String) -> Result<Vec<VaultDetails>, Error> 
     }
 
     let mut vault_details_cmd = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -254,6 +258,7 @@ pub fn load_all_vaults(account_id: &String) -> Result<Vec<VaultDetails>, Error> 
 #[allow(dead_code)]
 pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -278,6 +283,7 @@ pub fn find_vaults(account_id: &String) -> Result<Vec<VaultOverview>, Error> {
 #[allow(dead_code)]
 pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -302,6 +308,7 @@ pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails,
 // op --format json --account A --vault V item list | op --format json --account A --vault V item get --format json -
 pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemDetails>, Error> {
     let list_output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -322,6 +329,7 @@ pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<Item
     }
 
     let mut item_details_cmd = Command::new("op")
+        .arg("--cache")
         .arg("--account")
         .arg(account_id)
         .arg("--vault")
@@ -376,6 +384,7 @@ pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<Item
 #[allow(dead_code)]
 pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
@@ -406,6 +415,7 @@ pub fn get_item(
     item_id: &String,
 ) -> Result<ItemDetails, Error> {
     let output = Command::new("op")
+        .arg("--cache")
         .arg("--account")
         .arg(account_id)
         .arg("--vault")
