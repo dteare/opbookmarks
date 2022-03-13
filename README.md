@@ -48,7 +48,7 @@ OPTIONS:
 
 If you'd like to automatically trigger `opbookmarks` after a change you can use `--watch-path` to monitor the 1Password 8 data folder. This uses the FSEvents API provided by Apple which is efficient enough to leave running in the background indefinitely.
 
-Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example to watch a single account indefinitely, even after the Terminal window is closed:
+Use `nohup` and append `&` to the above command to allow it to run even after the Terminal window is closed. For example, to watch a single account indefinitely, even after the Terminal window is closed:
 
 `nohup opbookmarks BXRGOJ2Z5JB4RMA7FUYUURELUE &`
 
@@ -61,7 +61,7 @@ You can add support for 1Password bookmarks to your app by following these steps
 3. To open an item in 1Password for editing launch `onepassword://edit-item/?a=${item.profileUUID}&v=${item.vaultUUID}&i=${item.uuid}`.
 4. For items with websites, open a browser and 1Password in your browser will show the fill options in the inline menu. In the future a url handler will be provided for automatic Open&Fill support.
 
-A working example can be seen in the [1Password 8 Raycast extension](https://github.com/dteare/raycast-1password-extension). The primary code is in [list.tsx](/blob/main/src/list.tsx).
+A working example can be seen in the [1Password 8 Raycast extension](https://github.com/dteare/raycast-1password-extension). The primary code is in [list.tsx](https://github.com/dteare/raycast-1password-extension/blob/main/src/list.tsx).
 
 If your app already has support for 1Password 7, during the transition period you could fall back to the old approach if `~/.config/op/bookmarks` isn't found. I.e. load item metadata from `~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password` and use the 1Password 7 url handlers.
 
@@ -110,8 +110,18 @@ opbookmarks on  main is 📦 v0.1.0 via 🦀 v1.60.0-nightly took 7s
 ❯ time cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE
 Will create bookmark metadata for account user uuids ["BXRGOJ2Z5JB4RMA7FUYUURELUE"]...
 Exporting bookmarks for accounts ["XGJMPC4WTNAGRPSEDC6T4D3HJI"]
-Metadata files written to "/Users/dave/.config/op/bookmarks".
+0 metadata files written to "/Users/dave/.config/op/bookmarks".
 cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  0.30s user 0.09s system 20% cpu 1.921 total
+```
+
+**Typical sync w/ warm op cache, one item changed: 6.4s**
+
+```
+❯ time cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE
+Will create bookmark metadata for account user uuids ["BXRGOJ2Z5JB4RMA7FUYUURELUE"]...
+Exporting bookmarks for accounts ["XGJMPC4WTNAGRPSEDC6T4D3HJI"]
+1 metadata files written to "/Users/dave/.config/op/bookmarks".
+cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  0.87s user 0.23s system 16% cpu 6.434 total
 ```
 
 **Full sync w/ warm op cache: 7.5s**
@@ -120,7 +130,7 @@ cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  0.30s user 0.09s system 20% cpu 1.921 tota
 ❯ time cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE
 Will create bookmark metadata for account user uuids ["BXRGOJ2Z5JB4RMA7FUYUURELUE"]...
 Exporting bookmarks for accounts ["XGJMPC4WTNAGRPSEDC6T4D3HJI"]
-Metadata files written to "/Users/dave/.config/op/bookmarks".
+62 metadata files written to "/Users/dave/.config/op/bookmarks".
 cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  1.23s user 0.37s system 21% cpu 7.505 total
 ```
 
@@ -130,7 +140,7 @@ cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  1.23s user 0.37s system 21% cpu 7.505 tota
 ❯ time cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE
 Will create bookmark metadata for account user uuids ["BXRGOJ2Z5JB4RMA7FUYUURELUE"]...
 Exporting bookmarks for accounts ["XGJMPC4WTNAGRPSEDC6T4D3HJI"]
-Metadata files written to "/Users/dave/.config/op/bookmarks".
+62 metadata files written to "/Users/dave/.config/op/bookmarks".
 cargo run BXRGOJ2Z5JB4RMA7FUYUURELUE  1.74s user 0.59s system 14% cpu 16.491 total
 ```
 
