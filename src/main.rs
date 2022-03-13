@@ -23,8 +23,12 @@ struct Cli {
     #[clap(parse(from_os_str), short, long)]
     export_path: Option<PathBuf>,
 
-    /// The path to the 1Password 8 database file to watch. Defaults to ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
-    #[clap(parse(from_os_str), short, long)]
+    // Watch the 1Password data folder for changes.
+    #[clap(long)]
+    watch: bool,
+
+    /// The path to the 1Password 8 database folder to watch. Defaults to ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
+    #[clap(parse(from_os_str), long)]
     watch_path: Option<PathBuf>,
 }
 
@@ -65,7 +69,16 @@ fn main() {
     generate_opbookmarks(&args.accounts, &export_path);
 
     // Watch for changes
-    if let Some(path) = args.watch_path {
+    if args.watch {
+        let path = match args.watch_path {
+            Some(p) => p,
+            None => {
+                let mut p = dirs::home_dir().unwrap();
+                p.push("Library/Group Containers/2BUA8C4S2C.com.1password/Library/Application Support/1Password/Data");
+                p
+            }
+        };
+
         println!("Watching 1Password 8 data folder for changes ({:?})", path);
         if let Err(e) = watch(path, &args.accounts, &export_path) {
             println!("error: {:?}", e)
