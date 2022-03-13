@@ -1,5 +1,6 @@
 mod op;
 mod op7_metadata;
+mod util;
 
 use op::{
     load_all_accounts, load_all_items, load_all_vaults, AccountDetails, ItemDetails, VaultDetails,
@@ -15,6 +16,9 @@ use std::{collections::HashMap, process::exit};
 
 #[derive(Parser)]
 struct Cli {
+    /// Account user UUIDs to generate metadata for. Leave empty to export bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
+    accounts: Vec<String>,
+
     /// The path to export the metadata files to. Defaults to ~/.config/op/bookmarks. For backwards compatibility with 1Password 7 use ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
     #[clap(parse(from_os_str), short, long)]
     export_path: Option<PathBuf>,
@@ -22,9 +26,28 @@ struct Cli {
     /// The path to the 1Password 8 database file to watch. Defaults to ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
     #[clap(parse(from_os_str), short, long)]
     watch_path: Option<PathBuf>,
+}
 
-    /// Account user UUIDs to generate metadata for. Leave empty to export bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
-    accounts: Vec<String>,
+#[derive(Debug, Default, serde::Deserialize, serde::Serialize)]
+struct BookmarkCache {
+    vaults_by_account_id: HashMap<String, Vec<VaultDetails>>,
+}
+
+impl BookmarkCache {
+    fn vault_content_version(&self, account_id: &String, vault_id: &String) -> usize {
+        let vaults = self.vaults_by_account_id.get(account_id);
+
+        match vaults {
+            Some(vaults) => {
+                let vault = vaults.iter().find(|v| v.id.eq(vault_id));
+                match vault {
+                    Some(vault) => vault.content_version,
+                    None => 0,
+                }
+            }
+            None => 0,
+        }
+    }
 }
 
 fn main() {
@@ -61,6 +84,7 @@ fn export_path(cli_path: Option<PathBuf>) -> PathBuf {
 }
 
 fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::path::PathBuf) {
+    let cache = load_cache(export_path);
     let accounts = load_all_accounts(account_user_uuids);
 
     if let Err(err) = accounts {
@@ -97,9 +121,17 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
 
-    // Collect the items for each vault
+    // Collect the items for each vault that has changed
     for (account, vaults) in vaults_by_account.iter() {
         for vault in vaults.iter() {
+            let export_needed =
+                vault.content_version > cache.vault_content_version(&account.id, &vault.id);
+            if !export_needed {
+                println!("No item changes detected in {}::{}", account.id, vault.id);
+                items_by_vault.insert((*vault).clone(), vec![]);
+                continue;
+            }
+
             let items = load_all_items(&account.id, &vault.id);
 
             match items {
@@ -132,6 +164,55 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
         }
     }
     println!("Metadata files written to {:?}.", export_path);
+
+    let mut vaults_by_account_id: HashMap<String, Vec<VaultDetails>> = HashMap::new();
+    for (account, vault) in vaults_by_account.iter() {
+        vaults_by_account_id.insert(account.clone().id, vault.clone());
+    }
+
+    let cache = BookmarkCache {
+        vaults_by_account_id: vaults_by_account_id,
+    };
+    save_cache(&cache, &export_path);
+}
+
+fn load_cache(path: &PathBuf) -> BookmarkCache {
+    let mut path = path.clone();
+    path.push("cache.json");
+
+    let json = std::fs::read_to_string(path);
+
+    match json {
+        Ok(json) => {
+            let cache: Result<BookmarkCache, serde_json::Error> =
+                serde_json::from_str(json.as_str());
+
+            match cache {
+                Ok(cache) => cache,
+                Err(e) => {
+                    eprint!(
+                        "Reseting caches because cache.json could not be deserialized: {:?}",
+                        e
+                    );
+                    BookmarkCache::default()
+                }
+            }
+        }
+        Err(_) => BookmarkCache::default(),
+    }
+}
+
+fn save_cache(cache: &BookmarkCache, path: &PathBuf) {
+    let mut path = path.clone();
+    path.push("cache.json");
+    match serde_json::to_string(&cache) {
+        Ok(json) => {
+            util::write_file(path, json);
+        }
+        Err(err) => {
+            eprint!("Error serializing json for cache: {}", err);
+        }
+    };
 }
 
 fn watch(
