@@ -19,12 +19,12 @@ struct Cli {
     /// Account user UUIDs to generate metadata for. Leave empty to export bookmarks for all accounts. Use spaces to separate multiple accounts. UUIDs can be found using `op account list`.
     accounts: Vec<String>,
 
-    /// The path to export the metadata files to. Defaults to ~/.config/op/bookmarks. For backwards compatibility with 1Password 7 use ~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/Metadata/1Password
+    /// The path to export the metadata files to. Defaults to ~/.config/op/bookmarks.
     #[clap(parse(from_os_str), short, long)]
     export_path: Option<PathBuf>,
 
-    // Watch the 1Password data folder for changes.
-    #[clap(long)]
+    /// Watch the 1Password data folder for changes.
+    #[clap(short, long)]
     watch: bool,
 
     /// The path to the 1Password 8 database folder to watch. Defaults to ~/Library/Group\ Containers/2BUA8C4S2C.com.1password/Library/Application\ Support/1Password/Data
