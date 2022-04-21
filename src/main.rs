@@ -2,9 +2,7 @@ mod op;
 mod op7_metadata;
 mod util;
 
-use op::{
-    load_all_accounts, load_all_items, load_all_vaults, AccountDetails, ItemDetails, VaultDetails,
-};
+use op::{load_all_accounts, load_all_vaults, AccountDetails, VaultDetails};
 use op7_metadata::write_items;
 
 use clap::Parser;
@@ -13,6 +11,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 use std::{collections::HashMap, process::exit};
+
+use crate::op::ItemOverview;
 
 #[derive(Parser)]
 struct Cli {
@@ -128,7 +128,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
 
     let accounts = accounts.unwrap();
     let mut vaults_by_account: HashMap<AccountDetails, Vec<VaultDetails>> = HashMap::new();
-    let mut items_by_vault: HashMap<VaultDetails, Vec<ItemDetails>> = HashMap::new();
+    let mut items_by_vault: HashMap<VaultDetails, Vec<ItemOverview>> = HashMap::new();
 
     println!(
         "Exporting bookmarks for accounts {:?}",
@@ -166,7 +166,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
                 continue;
             }
 
-            let items = load_all_items(&account.id, &vault.id);
+            let items = op::item_overviews(&account.id, &vault.id);
 
             match items {
                 Ok(items) => {
@@ -174,7 +174,7 @@ fn generate_opbookmarks(account_user_uuids: &Vec<String>, export_path: &std::pat
                 }
                 Err(err) => {
                     eprintln!(
-                        "Failed to load items for vault {} in account {}: {:?}",
+                        "Failed to load item overviews for vault {} in account {}: {:?}",
                         vault.id, account.id, err
                     )
                 }

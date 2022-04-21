@@ -44,13 +44,30 @@ pub struct VaultDetails {
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ItemOverview {
     pub id: String,
-    pub title: String,
-    pub version: usize,
     pub vault: VaultOverview,
+
+    pub title: String,
+    pub additional_info: Option<String>,
+    #[serde(default)]
+    pub urls: Vec<OPURL>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub category: String,
+    pub version: usize,
+
     pub last_edited_by: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+impl ItemOverview {
+    pub fn urls_as_vec(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+        for url in self.urls.iter() {
+            result.push(url.href.clone());
+        }
+        result
+    }
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -352,6 +369,7 @@ pub fn get_vault(account_id: &String, vault_id: &String) -> Result<VaultDetails,
 }
 
 // op --format json --account A --vault V item list | op --format json --account A --vault V item get --format json -
+#[allow(dead_code)]
 pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemDetails>, Error> {
     let list_output = Command::new("op")
         .arg("--cache")
@@ -427,18 +445,18 @@ pub fn load_all_items(account_id: &String, vault_id: &String) -> Result<Vec<Item
     Ok(items)
 }
 
-#[allow(dead_code)]
-pub fn find_items(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
+// op --account BXRGOJ2Z5JB4RMA7FUYUURELUE --vault m2h6aow3uh3ps7ci2uwetk7h6q item list --format=json
+pub fn item_overviews(account_id: &String, vault_id: &String) -> Result<Vec<ItemOverview>, Error> {
     let output = Command::new("op")
         .arg("--cache")
         .arg("--format")
         .arg("json")
         .arg("--account")
         .arg(account_id)
-        .arg("item")
-        .arg("list")
         .arg("--vault")
         .arg(vault_id)
+        .arg("item")
+        .arg("list")
         .output()
         .expect("failed to execute `op` command");
     let json = output.stdout;
