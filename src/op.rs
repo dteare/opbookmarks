@@ -80,6 +80,29 @@ pub enum Error {
     // Serialize(serde_json::Error),
 }
 
+#[derive(Debug, PartialEq)]
+pub enum OPStatus {
+    NotInstalled,
+    Installed(semver::Version),
+}
+
+pub fn status() -> OPStatus {
+    let v = version();
+
+    match v {
+        Some(v) => {
+            println!("op version <{}>", v);
+            let parsed_version = semver::Version::parse(&v);
+
+            match parsed_version {
+                Ok(v) => OPStatus::Installed(v),
+                Err(_) => OPStatus::NotInstalled,
+            }
+        }
+        None => OPStatus::NotInstalled,
+    }
+}
+
 pub fn load_all_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<AccountDetails>, Error> {
     let accounts = find_accounts(account_user_uuids);
 
@@ -104,6 +127,29 @@ pub fn load_all_accounts(account_user_uuids: &Vec<String>) -> Result<Vec<Account
             Ok(details)
         }
         Err(e) => Err(e),
+    }
+}
+
+pub fn version() -> Option<String> {
+    let output = Command::new("op").arg("--version").output();
+
+    match output {
+        Ok(output) => {
+            let mut version = output.stdout;
+            let error = output.stderr;
+
+            if error.len() > 0 {
+                println!(
+                    "Error running `op --version`: {}",
+                    String::from_utf8_lossy(&error)
+                );
+                None
+            } else {
+                version.pop(); // truncate \n
+                Some(String::from_utf8_lossy(&version).into_owned())
+            }
+        }
+        Err(_) => None,
     }
 }
 

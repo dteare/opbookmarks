@@ -55,6 +55,8 @@ impl BookmarkCache {
 }
 
 fn main() {
+    verify_op_cli_version();
+
     let args = Cli::parse();
     if args.accounts.len() == 0 {
         println!("Will create bookmark metadata for all accounts...");
@@ -82,6 +84,25 @@ fn main() {
         println!("Watching 1Password 8 data folder for changes ({:?})", path);
         if let Err(e) = watch(path, &args.accounts, &export_path) {
             println!("error: {:?}", e)
+        }
+    }
+}
+
+fn verify_op_cli_version() {
+    let op_status = op::status();
+    match op_status {
+        op::OPStatus::NotInstalled => {
+            println!("Unable to find `op` CLI tool. This is a required dependancy and can be installed from https://developer.1password.com/docs/cli");
+            exit(1);
+        }
+        op::OPStatus::Installed(v) => {
+            let req = semver::VersionReq::parse(">=2.0.2").unwrap();
+            if req.matches(&v) {
+                println!("op 2.0.2 version requirement satisfied");
+            } else {
+                println!("op cli version 2.0.2 required. Install the latest from https://developer.1password.com/docs/cli");
+                exit(1);
+            }
         }
     }
 }
