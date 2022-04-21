@@ -57,7 +57,7 @@ Use `nohup` and append `&` to the above command to allow it to run even after th
 You can add support for 1Password bookmarks to your app by following these steps:
 
 1. Load item metadata from `~/.config/op/bookmarks`. See `Item metadata` section for details.
-2. To view an item in 1Password launch `onepassword://open-item/?a=${item.profileUUID}&v=${item.vaultUUID}&i=${item.uuid}`.
+2. To view an item in 1Password launch `onepassword://view-item/?a=${item.profileUUID}&v=${item.vaultUUID}&i=${item.uuid}`.
 3. To open an item in 1Password for editing launch `onepassword://edit-item/?a=${item.profileUUID}&v=${item.vaultUUID}&i=${item.uuid}`.
 4. For items with websites, open a browser and 1Password in your browser will show the fill options in the inline menu. In the future a url handler will be provided for automatic Open&Fill support.
 
