@@ -20,6 +20,20 @@ The built executable can be found in `target/release/opbookmarks`.
 
 You can find pre-built executables on the [releases page](https://github.com/dteare/opbookmarks/releases). To use these you will need to manually chmod u+x and remove the quarentine bit to make it work.
 
+### Brew
+
+You can install the service via brew:
+
+```shell
+brew install iloveitaly/tap/opbookmarks
+```
+
+Included with the brew installation is a service you can use to run `--watch` in the background:
+
+```
+brew services start opbookmarks
+```
+
 ## Usage
 
 You will need [1Password 8](http://1password.com/downloads/mac/#beta-downloads) as well as the [1Password CLI](https://developer.1password.com/docs/cli) installed.
